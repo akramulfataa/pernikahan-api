@@ -1,39 +1,85 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 )
 
-// note projek :
-// - inputkan kebutuhan sehari hari seperti uang makan, rokok kalau ada, jajan, ngopi dan lain lain yang sifatnya komsumtif
-// - setelah itu sisa gaji nya baru di bagikan ke kebutuhan non komsuftif seperti biaya pernikahan, asset, keluarga, dan lain lain
-// - dari penghasilan di kuragi semua penggeluaran konsumtif perhari kemudian di cari sisa nya baru di bagi persennya
-
+// Struct data
 type Uang struct {
 	Penghasilan float64 `json:"penghasilan"`
-	Makan float64	`json:"makan"`
-	Jajan float64 `json:"jajan"` 
-	Rokok float64	`json:"rokok"`
-	Ngopi float64 `json:"ngopi"`
-	Ngedate float64 `json:"ngedate"`
+	Makan       float64 `json:"makan"`
+	Jajan       float64 `json:"jajan"`
+	Rokok       float64 `json:"rokok"`
+	Ngopi       float64 `json:"ngopi"`
+	Ngedate     float64 `json:"ngedate"`
 }
 
 type UangRequest struct {
 	Penghasilan float64 `json:"penghasilan"`
-	Makan float64	`json:"makan"`
-	Jajan float64 `json:"jajan"` 
-	Rokok float64	`json:"rokok"`
-	Ngopi float64 `json:"ngopi"`
-	Ngedate float64 `json:"ngedate"`
+	Makan       float64 `json:"makan"`
+	Jajan       float64 `json:"jajan"`
+	Rokok       float64 `json:"rokok"`
+	Ngopi       float64 `json:"ngopi"`
+	Ngedate     float64 `json:"ngedate"`
 }
 
-func New(req *UangRequest) (*Uang, error) {
+type Response struct {
+	TotalPengeluaran float64            `json:"total_pengeluaran"`
+	SisaUang         float64            `json:"sisa_uang"`
+	Alokasi          map[string]float64 `json:"alokasi"`
+}
 
-	if err := validateInputOuput(req); err != nil {
-		return nil, err
+// Validator
+func validateInputOutput(req *UangRequest) error {
+	if req.Penghasilan <= 0 {
+		return fmt.Errorf("penghasilan harus lebih dari 0")
+	}
+	if req.Makan < 0 {
+		return fmt.Errorf("makan tidak boleh negatif")
+	}
+	if req.Jajan < 0 {
+		return fmt.Errorf("jajan tidak boleh negatif")
+	}
+	if req.Rokok < 0 {
+		return fmt.Errorf("rokok tidak boleh negatif")
+	}
+	if req.Ngopi < 0 {
+		return fmt.Errorf("ngopi tidak boleh negatif")
+	}
+	if req.Ngedate < 0 {
+		return fmt.Errorf("ngedate tidak boleh negatif")
+	}
+	return nil
+}
+
+// Hitung total bulanan
+func GetTotalBulanan(uang *Uang) float64 {
+	return uang.Makan + uang.Jajan + uang.Rokok + uang.Ngopi + uang.Ngedate
+}
+
+// Handler API
+func HitungHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
+	var req UangRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
+	// Validasi input
+	if err := validateInputOutput(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Buat objek uang
 	uang := &Uang{
 		Penghasilan: req.Penghasilan,
 		Makan:       req.Makan,
@@ -43,74 +89,30 @@ func New(req *UangRequest) (*Uang, error) {
 		Ngedate:     req.Ngedate,
 	}
 
-	return uang, nil
-	
-}
-
-
-// Fungsi untuk menghitung total pengeluaran konsumtif bulanan
-func GetTotalBulanan(uang *Uang) float64 {
-	total := uang.Makan + uang.Jajan + uang.Rokok + uang.Ngopi + uang.Ngedate
-	return total
-}
-
-func validateInputOuput(req *UangRequest) error {
-	if req.Penghasilan != 0 && req.Penghasilan <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	if req.Makan != 0 && req.Makan <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	if req.Jajan != 0 && req.Jajan <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	if req.Rokok != 0 && req.Rokok <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	if req.Ngopi != 0 && req.Ngopi <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	if req.Ngedate != 0 && req.Ngedate <= 0 {
-		fmt.Errorf("penghasilan is required")
-	}
-	return nil
-}
-
-func main(){
-	// Contoh input
-	req := &UangRequest{
-		Penghasilan: 10000000,
-		Makan:       2000000,
-		Jajan:       500000,
-		Rokok:       300000,
-		Ngopi:       400000,
-		Ngedate:     600000,
-	}
-
-	// Inisialisasi objek Uang
-	uang, err := New(req)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	// Hitung total pengeluaran konsumtif bulanan
 	totalBulanan := GetTotalBulanan(uang)
-	fmt.Printf("Total Pengeluaran Konsumtif Bulanan: %.2f\n", totalBulanan)
-
-	// Hitung sisa uang setelah pengeluaran konsumtif
 	sisaUang := uang.Penghasilan - totalBulanan
-	fmt.Printf("Sisa Uang Setelah Pengeluaran Konsumtif: %.2f\n", sisaUang)
 
-	// Hitung alokasi ke berbagai aspek
+	// Alokasi 20% sisa uang ke 4 kategori
 	alokasiPersen := 0.20
-	asset := sisaUang * alokasiPersen * 0.25
-	nikah := sisaUang * alokasiPersen * 0.25
-	keluarga := sisaUang * alokasiPersen * 0.25
-	sedekah := sisaUang * alokasiPersen * 0.25
+	alokasi := map[string]float64{
+		"asset":    sisaUang * alokasiPersen * 0.25,
+		"nikah":    sisaUang * alokasiPersen * 0.25,
+		"keluarga": sisaUang * alokasiPersen * 0.25,
+		"sedekah":  sisaUang * alokasiPersen * 0.25,
+	}
 
-	fmt.Printf("Alokasi Asset: %.2f\n", asset)
-	fmt.Printf("Alokasi Nikah: %.2f\n", nikah)
-	fmt.Printf("Alokasi Keluarga: %.2f\n", keluarga)
-	fmt.Printf("Alokasi Sedekah: %.2f\n", sedekah)
+	resp := Response{
+		TotalPengeluaran: totalBulanan,
+		SisaUang:         sisaUang,
+		Alokasi:          alokasi,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func main() {
+	http.HandleFunc("/api/hitung", HitungHandler)
+	fmt.Println("Server running at http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
