@@ -1,0 +1,12 @@
+### Hitung Pengeluaran & Alokasi Uang
+POST http://localhost:8080/api/hitung
+Content-Type: application/json
+
+{
+  "penghasilan": 10000000,
+  "makan": 2000000,
+  "jajan": 500000,
+  "rokok": 300000,
+  "ngopi": 400000,
+  "ngedate": 600000
+}
